@@ -40,9 +40,23 @@ function invalidateCache() {
   } catch { /* ignore */ }
 }
 
+const TOKEN_KEY = "arena-api-token";
+
+function getArenaToken() {
+  return localStorage.getItem(TOKEN_KEY) || "";
+}
+
+function setArenaToken(token) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+function clearArenaToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 function getAuthHeaders() {
-  const token = import.meta.env.VITE_ARENA_API_KEY;
-  if (!token) throw new Error("VITE_ARENA_API_KEY is not set");
+  const token = getArenaToken();
+  if (!token) throw new Error("No Arena API token — please enter one.");
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -176,6 +190,9 @@ async function putExternal(url, blob, contentType) {
 
 export {
   BASE_URL,
+  getArenaToken,
+  setArenaToken,
+  clearArenaToken,
   getAuthHeaders,
   getGroupSlug,
   fetchArena,

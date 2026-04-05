@@ -1,5 +1,8 @@
 export {
   BASE_URL,
+  getArenaToken,
+  setArenaToken,
+  clearArenaToken,
   getAuthHeaders,
   getGroupSlug,
   fetchArena,

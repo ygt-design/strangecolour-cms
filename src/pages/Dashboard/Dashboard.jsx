@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
-import { getGroupChannels, buildAreNaChannelWebUrl } from "../../arena";
+import {
+  getGroupChannels,
+  buildAreNaChannelWebUrl,
+  getArenaToken,
+  setArenaToken,
+  clearArenaToken,
+  invalidateCache,
+} from "../../arena";
 import { FONT_STACK, FW_LIGHT, FW_MEDIUM, FW_BOLD, G } from "../../theme/cmsTokens";
 import { GRID } from "../../grid";
 
@@ -200,6 +207,86 @@ const QuickLinkDesc = styled.span`
   color: ${G.text};
 `;
 
+// ─── Token management ────────────────────────────────────
+
+const TokenCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.15rem 1rem;
+  border: 1px solid ${G.border};
+  border-radius: 6px;
+  background: ${G.surface};
+  margin-bottom: 2.5rem;
+`;
+
+const TokenRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+`;
+
+const TokenMasked = styled.span`
+  font-family: ${FONT_STACK};
+  font-weight: ${FW_LIGHT};
+  font-size: 0.88rem;
+  color: ${G.ink};
+  letter-spacing: 0.04em;
+`;
+
+const TokenInput = styled.input`
+  font-family: ${FONT_STACK};
+  font-weight: ${FW_LIGHT};
+  font-size: 0.85rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid ${G.border};
+  border-radius: 5px;
+  background: ${G.bg};
+  color: ${G.ink};
+  outline: none;
+  flex: 1;
+  min-width: 180px;
+
+  &::placeholder {
+    color: ${G.placeholder};
+  }
+
+  &:focus {
+    border-color: ${G.lineHover};
+  }
+`;
+
+const TokenBtn = styled.button`
+  font-family: ${FONT_STACK};
+  font-weight: ${FW_MEDIUM};
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid ${G.border};
+  border-radius: 4px;
+  background: transparent;
+  color: ${G.ink};
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  white-space: nowrap;
+
+  &:hover {
+    background: ${G.surfaceHover};
+    border-color: ${G.lineHover};
+  }
+`;
+
+const TokenBtnDanger = styled(TokenBtn)`
+  color: var(--cms-error-text);
+  border-color: var(--cms-error-border);
+
+  &:hover {
+    background: var(--cms-error-border);
+  }
+`;
+
 // ─── Helpers ────────────────────────────────────────────
 
 function formatRelativeTime(dateStr) {
@@ -239,9 +326,17 @@ function channelDisplayName(title) {
 
 // ─── Component ──────────────────────────────────────────
 
+function maskToken(token) {
+  if (!token) return "";
+  if (token.length <= 6) return "\u2022".repeat(token.length);
+  return "\u2022".repeat(token.length - 4) + token.slice(-4);
+}
+
 export default function Dashboard() {
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -358,6 +453,58 @@ export default function Dashboard() {
           })}
         </ActivityList>
       )}
+
+      <SectionHeading>API Token</SectionHeading>
+      <TokenCard>
+        {editing ? (
+          <TokenRow>
+            <TokenInput
+              type="password"
+              placeholder="Paste new Are.na API token"
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setEditing(false);
+                  setDraft("");
+                }
+              }}
+            />
+            <TokenBtn
+              onClick={() => {
+                const trimmed = draft.trim();
+                if (!trimmed) return;
+                setArenaToken(trimmed);
+                invalidateCache();
+                setEditing(false);
+                setDraft("");
+                window.location.reload();
+              }}
+              disabled={!draft.trim()}
+            >
+              Save
+            </TokenBtn>
+            <TokenBtn onClick={() => { setEditing(false); setDraft(""); }}>
+              Cancel
+            </TokenBtn>
+          </TokenRow>
+        ) : (
+          <TokenRow>
+            <TokenMasked>{maskToken(getArenaToken())}</TokenMasked>
+            <TokenBtn onClick={() => setEditing(true)}>Update</TokenBtn>
+            <TokenBtnDanger
+              onClick={() => {
+                clearArenaToken();
+                invalidateCache();
+                window.location.reload();
+              }}
+            >
+              Clear &amp; sign out
+            </TokenBtnDanger>
+          </TokenRow>
+        )}
+      </TokenCard>
     </Page>
   );
 }
