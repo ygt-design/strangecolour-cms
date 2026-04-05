@@ -428,6 +428,7 @@ export default function ReorderCurrent() {
   const [status, setStatus] = useState({ kind: "", text: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selected, setSelected] = useState(new Set());
+  const removedIds = useRef(new Set());
 
   const dragIdx = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -631,6 +632,7 @@ export default function ReorderCurrent() {
         if (item?.connectionId) {
           await deleteConnection(item.connectionId);
         }
+        removedIds.current.add(id);
       }
       setItems((prev) => prev.filter((i) => !selected.has(i.id)));
       setSelected(new Set());
@@ -654,6 +656,7 @@ export default function ReorderCurrent() {
       if (item.connectionId) {
         await deleteConnection(item.connectionId);
       }
+      removedIds.current.add(item.id);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       setSelected((prev) => { const n = new Set(prev); n.delete(item.id); return n; });
       setStatus({ kind: "success", text: `"${parseDisplayName(item.title)}" removed.` });
@@ -686,6 +689,7 @@ export default function ReorderCurrent() {
         if (item.connectionId) {
           await deleteConnection(item.connectionId);
         }
+        removedIds.current.add(item.id);
       }
 
       // Reorder visible items
@@ -693,9 +697,9 @@ export default function ReorderCurrent() {
         await reorderChannelItems(channelId, visible);
       }
 
-      // Refetch
+      // Refetch, filtering out items that were explicitly removed this session
       const updated = await loadItems();
-      setItems(updated);
+      setItems(updated.filter((i) => !removedIds.current.has(i.id)));
       setSelected(new Set());
 
       const removedCount = hidden.length;
