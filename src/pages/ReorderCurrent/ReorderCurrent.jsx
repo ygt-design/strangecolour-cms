@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import styled, { css } from "styled-components";
 import {
   findChannelByTitle,
-  getGroupChannels,
   fetchAllChannelContents,
   reorderChannelItems,
   deleteConnection,
@@ -428,7 +427,6 @@ export default function ReorderCurrent() {
   const [status, setStatus] = useState({ kind: "", text: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selected, setSelected] = useState(new Set());
-  const removedIds = useRef(new Set());
 
   const dragIdx = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -440,33 +438,19 @@ export default function ReorderCurrent() {
     const pageChannel = await findChannelByTitle("Page / Current");
     const connMap = new Map();
     const pageSlash = [];
-    const pageIds = new Set();
     if (pageChannel) {
       const pageContents = await fetchAllChannelContents(pageChannel.slug);
       for (const item of pageContents) {
         if (item.type === "Channel" && item.title?.startsWith("//")) {
           if (item.connection?.id) connMap.set(item.id, item.connection.id);
           pageSlash.push(item);
-          pageIds.add(item.id);
         }
       }
     }
 
-    // Fetch all // channels from the group so we don't miss any
-    const allGroupChannels = await getGroupChannels();
-    const unconnected = allGroupChannels.filter(
-      (item) =>
-        typeof item.title === "string" &&
-        item.title.startsWith("//") &&
-        !pageIds.has(item.id),
-    );
-
-    // Page order first, then unconnected appended at the end
-    const slashChannels = [...pageSlash, ...unconnected];
-
-    // Fetch details for each channel (thumbnail, subtitle, block count, updated_at)
+    // Fetch details for each connected channel
     const detailed = await Promise.all(
-      slashChannels.map(async (ch) => {
+      pageSlash.map(async (ch) => {
         let thumbnail = null;
         let subtitle = "";
         let blockCount = 0;
@@ -632,7 +616,6 @@ export default function ReorderCurrent() {
         if (item?.connectionId) {
           await deleteConnection(item.connectionId);
         }
-        removedIds.current.add(id);
       }
       setItems((prev) => prev.filter((i) => !selected.has(i.id)));
       setSelected(new Set());
@@ -656,7 +639,6 @@ export default function ReorderCurrent() {
       if (item.connectionId) {
         await deleteConnection(item.connectionId);
       }
-      removedIds.current.add(item.id);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       setSelected((prev) => { const n = new Set(prev); n.delete(item.id); return n; });
       setStatus({ kind: "success", text: `"${parseDisplayName(item.title)}" removed.` });
@@ -689,7 +671,6 @@ export default function ReorderCurrent() {
         if (item.connectionId) {
           await deleteConnection(item.connectionId);
         }
-        removedIds.current.add(item.id);
       }
 
       // Reorder visible items
@@ -697,9 +678,8 @@ export default function ReorderCurrent() {
         await reorderChannelItems(channelId, visible);
       }
 
-      // Refetch, filtering out items that were explicitly removed this session
       const updated = await loadItems();
-      setItems(updated.filter((i) => !removedIds.current.has(i.id)));
+      setItems(updated);
       setSelected(new Set());
 
       const removedCount = hidden.length;
