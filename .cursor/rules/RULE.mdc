@@ -1,0 +1,95 @@
+---
+alwaysApply: false
+---
+# Design Rules
+
+## Grid System
+
+This project uses a shared 12-column grid (4 columns on mobile) with styled-components.
+
+### Config and components
+
+- **Config**: `src/grid/config.js` exports `GRID` (columns, max-width, padding, gap, breakpoint).
+- **Layout**: Import `Grid` and `GridCell` from `src/grid` (or `src/grid/index.js`).
+- **Overlay**: `GridOverlay` in `src/components/GridOverlay.jsx`. Press **G** to show/hide the grid for alignment.
+
+### Using the grid
+
+1. Wrap a section in `<Grid>` (it's the grid container; use `as="div"` or another element if needed).
+2. Put content inside `<GridCell>` and set position/size with props (1-based columns):
+   - `$start` – column start (default 1)
+   - `$span` – number of columns to span (default full width)
+   - `$end` – column end (alternative to span, exclusive)
+   - `$startMobile` / `$spanMobile` – optional mobile position (default full width)
+
+### Examples
+
+```jsx
+import { Grid, GridCell } from './grid/index.js'
+
+<Grid as="div">
+  <GridCell $start={1} $span={8}>...</GridCell>   {/* columns 1–8 */}
+  <GridCell $start={9} $span={4}>...</GridCell>  {/* columns 9–12 */}
+  <GridCell $start={1} $span={6} $spanMobile={4}>...</GridCell>  {/* 6 cols desktop, full width mobile */}
+</Grid>
+```
+
+- All layout content should align to this grid.
+- Max width and padding come from `GRID` in `config.js`; the overlay matches the same values.
+
+## Responsive Design
+
+- Use the grid's breakpoint (`GRID.BREAKPOINT`) for layout changes.
+- Prefer flexible units (rem, %, clamp) for typography and spacing.
+- Use `$startMobile` / `$spanMobile` when a cell should differ on small screens (default is full width).
+
+---
+
+# Styled Components
+
+This project uses **styled-components** for styling. Use transient props (e.g. `$isVisible`) for style-only props so they are not passed to the DOM.
+
+## Official Documentation
+
+| Topic | URL |
+|-------|-----|
+| **Main docs** | https://styled-components.com/docs |
+| **Getting started** | https://styled-components.com/docs/basics |
+| **API reference** | https://styled-components.com/docs/api |
+| **FAQs** | https://styled-components.com/docs/faqs |
+
+## Core API
+
+| API | Description | Link |
+|-----|-------------|------|
+| **styled** | Create a styled component from a tag or component: `styled.div`, `styled(Component)` | https://styled-components.com/docs/api#styled |
+| **createGlobalStyle** | Global CSS (resets, fonts). Renders once, no scoping | https://styled-components.com/docs/api#createglobalstyle |
+| **css** | Tagged template for reusable CSS fragments; use in interpolations | https://styled-components.com/docs/api#css |
+| **keyframes** | Keyframe animations; use in `animation` | https://styled-components.com/docs/api#keyframes |
+
+## Key Concepts
+
+| Concept | Description | Link |
+|---------|-------------|------|
+| **Basics** | Tagged templates, interpolations (strings, functions, props) | https://styled-components.com/docs/basics#getting-started |
+| **Props** | Style from props: `color: ${props => props.$primary ? 'blue' : 'gray'}` | https://styled-components.com/docs/advanced#props |
+| **Transient props** | Prefix with `$` so the prop is not forwarded to the DOM (e.g. `$isActive`) | https://styled-components.com/docs/api#transient-props |
+| **Theming** | `<ThemeProvider>`, `theme` in props, `ThemeContext` | https://styled-components.com/docs/advanced#theming |
+| **Extending** | `styled(Button)` or `Button.extend` to extend existing styled components | https://styled-components.com/docs/basics#extending-styles |
+| **attrs** | Set default HTML attributes on the styled component | https://styled-components.com/docs/api#attrs |
+| **Polymorphic as** | Render as another element: `<Box as="button">` | https://styled-components.com/docs/api#as-polymorphic-prop |
+| **Nesting** | Use `&` for pseudo-classes and child selectors | https://styled-components.com/docs/basics#pseudoelements-pseudoselectors-and-nesting |
+
+## Usage in this project
+
+- **Global styles**: `createGlobalStyle` in `src/styles.js`, mounted once in `App.jsx`.
+- **Grid**: `Grid` and `GridCell` in `src/grid/Grid.jsx` use `GRID` from `config.js` and transient props (`$start`, `$span`, etc.).
+- **GridOverlay**: Uses transient prop `$isVisible` for toggling visibility.
+
+## Useful Resources
+
+| Resource | URL |
+|----------|-----|
+| **GitHub** | https://github.com/styled-components/styled-components |
+| **npm** | https://www.npmjs.com/package/styled-components |
+| **Releases / changelog** | https://styled-components.com/releases |

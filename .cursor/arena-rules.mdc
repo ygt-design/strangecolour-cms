@@ -1,0 +1,83 @@
+---
+description: Are.na API v3 integration rules for this project
+alwaysApply: true
+---
+
+# Are.na API v3 Rules
+
+Use these rules whenever implementing or modifying Are.na integration code.
+
+## Runtime + Secrets
+
+- Use `https://api.are.na` as the base URL for all requests.
+- Read secrets only from environment variables; never hardcode tokens or slugs.
+- API token env var: `VITE_ARENA_API_KEY`.
+- Group slug env var: `VITE_GROUP_SLUG`.
+- Never log, print, commit, or expose token values to client-visible output.
+- If a request needs authentication, send `Authorization: Bearer ${VITE_ARENA_API_KEY}`.
+
+## Endpoint Priority For This Project
+
+- Primary content source: `GET /v3/groups/{id}/contents` using `VITE_GROUP_SLUG` as `{id}`.
+- Group metadata endpoint: `GET /v3/groups/{id}`.
+- Channel details endpoint: `GET /v3/channels/{id}`.
+- Block details endpoint: `GET /v3/blocks/{id}`.
+- Prefer slug-based IDs where supported; pass numeric IDs when already available.
+
+## Request Rules
+
+- Always URL-encode path/query params.
+- Use pagination params on list endpoints: `page` and `per`.
+- Respect Are.na limits: `per` max is `100`; defaults are API-controlled (commonly `24`).
+- Do not loop through all pages at startup; fetch first page, then load more on demand.
+- For group contents filters, only use documented values:
+  - `type`: `Text | Image | Link | Attachment | Embed | Channel | Block`
+  - `sort`: `created_at_asc | created_at_desc | updated_at_asc | updated_at_desc`
+
+## Response Handling Rules
+
+- Treat list responses as `{ data, meta }`; use `meta.has_more_pages` / `meta.next_page`.
+- Support mixed `data` item types (blocks and channels) with safe type narrowing.
+- Handle optional/nullable fields defensively (`description`, `source`, preview images, etc.).
+- Expect markdown content objects where present: `markdown`, `html`, and `plain`.
+
+## Errors + Rate Limits
+
+- Handle `400`, `401`, `403`, `404`, and `429` explicitly.
+- `401`: auth missing/invalid; verify bearer token and formatting.
+- `403`: often scope/permission issue (read-only token attempting writes).
+- `429`: read rate-limit headers (`X-RateLimit-Limit`, `X-RateLimit-Reset`) and retry after reset with backoff.
+- Avoid tight retry loops and bulk scraping behavior.
+
+## Caching + Performance
+
+- Use `ETag` + `If-None-Match` where practical to revalidate cached responses.
+- Handle `304 Not Modified` as a valid non-error response.
+- Prefer summary/list fetches before detail fetches to reduce request volume.
+- Build UI to work with partial data and progressive loading.
+
+## Write Operation Guardrails
+
+- Treat integration as read-first unless a task explicitly requires writes.
+- Any write endpoint (`POST/PUT/DELETE`) must confirm token scope supports `write`.
+- Before implementing mutations, check endpoint auth requirements and user permissions.
+- For batch or high-volume writes, throttle requests and preserve idempotency when possible.
+
+## Implementation Expectations
+
+- Centralize Are.na API calls in one service module (single base URL, header, error mapping).
+- Keep endpoint paths, query serialization, and response typing explicit and testable.
+- Never add undocumented query params or enum values.
+- If API behavior is unclear, consult the v3 docs/OpenAPI before coding assumptions.
+
+## Channel Content Logging
+
+When making changes that affect how channel content is fetched, rendered, or structured:
+
+1. **Log channel contents to the terminal** before or after the change. Use `curl` with the API token and group slug from `.env` to fetch the channel contents.
+2. **Track and report:**
+   - Content types (`type` for each block: Text, Image, Link, Channel, etc.)
+   - Block names (`title` for each block)
+   - Inner content (`content.plain`, `content.html`, `image.src`, `source.url`, etc.)
+3. **Example flow:** Fetch `GET /v3/groups/{VITE_GROUP_SLUG}/contents?type=Channel` to find the channel slug, then `GET /v3/channels/{slug}/contents` to get blocks. Pipe through `python3 -m json.tool` for readable output.
+4. This keeps a clear record of the channel structure and helps avoid mismatches between API data and UI rendering.
