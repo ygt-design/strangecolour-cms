@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled, { css } from "styled-components";
 import {
   findChannelByTitle,
@@ -543,7 +543,11 @@ const TEXT_FIELDS = [
   { key: "Scope", label: "Scope", placeholder: "Services list" },
   { key: "Contact", label: "Contact", placeholder: "Phone, email, address" },
   { key: "Collaborators", label: "Collaborators", placeholder: "List of collaborators" },
-  { key: "Donations", label: "Donations", placeholder: "List of donation recipients" },
+  {
+    key: "Donations",
+    label: "Donations",
+    placeholder: "Right column: one paragraph or list item per initiative (same pattern as Collaborators)",
+  },
 ];
 
 // ─── Component ──────────────────────────────────────────
@@ -685,19 +689,29 @@ export default function EditOurPractice() {
           <Heading>Edit Our Practice</Heading>
           <Intro>
             Edit and format the content blocks for the Our Practice page. Changes are
-            saved directly to the existing blocks on Are.na.
+            saved directly to the existing blocks on Are.na. Add a Text block on &quot;Page /
+            Our Practice&quot; titled <strong>Donations</strong> for the initiatives list.
+            If a field is empty here, that block is missing on Are.na — the site uses
+            built-in fallback copy where applicable.
           </Intro>
         </HeaderWrap>
 
         <FormLayout onSubmit={handleSubmit}>
           <FormFields>
             {TEXT_FIELDS.map((field) => (
-              <RichTextField
-                key={field.key}
-                field={field}
-                value={htmls[field.key] ?? ""}
-                onChange={(value) => handleHtmlChange(field.key, value)}
-              />
+              <Fragment key={field.key}>
+                {field.key === "Donations" && !blocks[field.key] && (
+                  <Hint>
+                    No Are.na Text block titled &quot;{field.key}&quot; on &quot;Page / Our Practice&quot;.
+                    Add one with that exact title so saves apply here.
+                  </Hint>
+                )}
+                <RichTextField
+                  field={field}
+                  value={htmls[field.key] ?? ""}
+                  onChange={(value) => handleHtmlChange(field.key, value)}
+                />
+              </Fragment>
             ))}
 
             <ImageField
