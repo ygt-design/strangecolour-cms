@@ -267,6 +267,38 @@ export async function replaceImageBlock(channelId, oldBlockId, file, title) {
   return uploadImageBlock(channelId, file, title);
 }
 
+// Are.na / S3 stores files by filename, so names containing spaces or other
+// non-URL-safe characters produce invalid URIs when we later hand the S3 URL
+// back to Are.na to create the block (resulting in `bad URI(is not URI?)`).
+// Normalise to a conservative, web-safe filename before presigning.
+function sanitizeUploadFilename(name) {
+  const fallback = "upload";
+  if (typeof name !== "string" || !name.trim()) return fallback;
+
+  const lastDot = name.lastIndexOf(".");
+  const base = lastDot > 0 ? name.slice(0, lastDot) : name;
+  const ext = lastDot > 0 ? name.slice(lastDot + 1) : "";
+
+  const cleanBase = base
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || fallback;
+
+  const cleanExt = ext.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
+  return cleanExt ? `${cleanBase}.${cleanExt}` : cleanBase;
+}
+
+// Encode each path segment of an S3 key so the assembled URL is a valid URI
+// even if a legacy/unexpected key still contains spaces or other reserved chars.
+function encodeS3Key(key) {
+  return String(key)
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
 /**
  * POST /v3/uploads/presign  →  S3 PUT  →  POST /v3/blocks
  * Uploads a local File through Are.na's presigned-S3 flow,
@@ -277,9 +309,11 @@ export async function uploadImageBlock(channelId, file, title) {
   if (!file) throw new Error("Image file is required");
   if (!title?.trim()) throw new Error("Image block title is required");
 
+  const safeFilename = sanitizeUploadFilename(file.name);
+
   const presign = await postArena("/uploads/presign", {
     body: {
-      files: [{ filename: file.name, content_type: file.type }],
+      files: [{ filename: safeFilename, content_type: file.type }],
     },
   });
 
@@ -290,7 +324,7 @@ export async function uploadImageBlock(channelId, file, title) {
 
   await putExternal(entry.upload_url, file, entry.content_type);
 
-  const s3Url = `https://s3.amazonaws.com/arena_images-temp/${entry.key}`;
+  const s3Url = `https://s3.amazonaws.com/arena_images-temp/${encodeS3Key(entry.key)}`;
 
   const block = await postArena("/blocks", {
     body: {
