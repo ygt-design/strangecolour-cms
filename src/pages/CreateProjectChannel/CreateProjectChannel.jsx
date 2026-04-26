@@ -266,6 +266,29 @@ const SinglePreview = styled.div`
   }
 `;
 
+const PreviewGrid = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+`;
+
+const PreviewThumb = styled.div`
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 0;
+  overflow: hidden;
+  border: 1px solid ${G.line};
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+`;
+
 const RemoveButton = styled.button`
   position: absolute;
   top: 4px;
@@ -370,10 +393,21 @@ function isImage(file) {
   return typeof file?.type === "string" && file.type.startsWith("image/");
 }
 
-function validate({ name, imageFile, client, size, scope, architect, year }) {
+function validate({
+  name,
+  thumbnailFile,
+  imageFiles,
+  client,
+  size,
+  scope,
+  architect,
+  year,
+}) {
   if (!name.trim()) return "Project name is required.";
-  if (!imageFile) return "Project image is required.";
-  if (!isImage(imageFile)) return "Project image must be an image file.";
+  if (!thumbnailFile) return "Project thumbnail is required.";
+  if (!isImage(thumbnailFile)) return "Thumbnail must be an image file.";
+  if (imageFiles.some((f) => !isImage(f)))
+    return "All extra images must be image files.";
   if (!client.trim()) return "Client is required.";
   if (!size.trim()) return "Size is required.";
   if (!scope.trim()) return "Scope is required.";
@@ -396,6 +430,26 @@ function useObjectUrl(file) {
   );
 
   return objectUrl;
+}
+
+function useObjectUrls(files) {
+  const objectUrls = useMemo(
+    () => files.map((f) => URL.createObjectURL(f)),
+    [files],
+  );
+
+  useEffect(
+    () => () => {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [objectUrls],
+  );
+
+  return objectUrls;
+}
+
+function uniqueFileKey(file) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
 }
 
 function useDragState() {
@@ -434,7 +488,8 @@ function extractImageFiles(dataTransfer) {
 
 export default function CreateProjectChannel() {
   const [name, setName] = useState("");
-  const [imageFile, setImageFile] = useState(null);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
   const [client, setClient] = useState("");
   const [size, setSize] = useState("");
   const [scope, setScope] = useState("");
@@ -444,42 +499,79 @@ export default function CreateProjectChannel() {
   const [successChannelUrl, setSuccessChannelUrl] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const imageInputRef = useRef(null);
-  const imageDrag = useDragState();
-  const imagePreviewUrl = useObjectUrl(imageFile);
+  const thumbnailInputRef = useRef(null);
+  const imagesInputRef = useRef(null);
+  const thumbnailDrag = useDragState();
+  const imagesDrag = useDragState();
+  const thumbnailPreviewUrl = useObjectUrl(thumbnailFile);
+  const imagePreviewUrls = useObjectUrls(imageFiles);
 
   const previewTitle = useMemo(() => {
     const cleaned = name.trim().replace(/^→\s*/, "");
     return cleaned ? `→ ${cleaned}` : "";
   }, [name]);
 
-  const handleImageChange = useCallback((event) => {
+  const handleThumbnailChange = useCallback((event) => {
     const next = Array.from(event.target.files ?? []).find(isImage) ?? null;
-    setImageFile(next);
+    setThumbnailFile(next);
     event.target.value = "";
   }, []);
 
-  function handleImageDrop(e) {
+  const appendImages = useCallback((nextFiles) => {
+    const cleaned = nextFiles.filter(isImage);
+    if (!cleaned.length) return;
+    setImageFiles((prev) => {
+      const seen = new Set(prev.map(uniqueFileKey));
+      const merged = [...prev];
+      cleaned.forEach((file) => {
+        const key = uniqueFileKey(file);
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push(file);
+      });
+      return merged;
+    });
+  }, []);
+
+  const handleImagesChange = useCallback(
+    (event) => {
+      appendImages(Array.from(event.target.files ?? []));
+      event.target.value = "";
+    },
+    [appendImages],
+  );
+
+  function handleThumbnailDrop(e) {
     e.preventDefault();
-    imageDrag.reset();
+    thumbnailDrag.reset();
     const files = extractImageFiles(e.dataTransfer);
-    if (files.length > 0) setImageFile(files[0]);
+    if (files.length > 0) setThumbnailFile(files[0]);
   }
 
-  function handleImagePaste(e) {
+  function handleThumbnailPaste(e) {
     const files = Array.from(e.clipboardData?.items ?? [])
       .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
       .map((item) => item.getAsFile())
       .filter(Boolean);
     if (files.length > 0) {
       e.preventDefault();
-      setImageFile(files[0]);
+      setThumbnailFile(files[0]);
     }
   }
 
-  function clearImage() {
-    setImageFile(null);
-    if (imageInputRef.current) imageInputRef.current.value = "";
+  function handleImagesDrop(e) {
+    e.preventDefault();
+    imagesDrag.reset();
+    appendImages(extractImageFiles(e.dataTransfer));
+  }
+
+  function removeImage(index) {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function clearThumbnail() {
+    setThumbnailFile(null);
+    if (thumbnailInputRef.current) thumbnailInputRef.current.value = "";
   }
 
   async function handleSubmit(event) {
@@ -487,7 +579,16 @@ export default function CreateProjectChannel() {
     setStatus({ kind: "", text: "" });
     setSuccessChannelUrl(null);
 
-    const error = validate({ name, imageFile, client, size, scope, architect, year });
+    const error = validate({
+      name,
+      thumbnailFile,
+      imageFiles,
+      client,
+      size,
+      scope,
+      architect,
+      year,
+    });
     if (error) {
       setStatus({ kind: "error", text: error });
       return;
@@ -497,7 +598,8 @@ export default function CreateProjectChannel() {
     try {
       const result = await createProjectChannel({
         name,
-        imageFile,
+        thumbnailFile,
+        imageFiles,
         client,
         size,
         scope,
@@ -511,13 +613,15 @@ export default function CreateProjectChannel() {
       });
       setSuccessChannelUrl(buildAreNaChannelWebUrl(result.channel));
       setName("");
-      setImageFile(null);
+      setThumbnailFile(null);
+      setImageFiles([]);
       setClient("");
       setSize("");
       setScope("");
       setArchitect("");
       setYear("");
-      if (imageInputRef.current) imageInputRef.current.value = "";
+      if (thumbnailInputRef.current) thumbnailInputRef.current.value = "";
+      if (imagesInputRef.current) imagesInputRef.current.value = "";
     } catch (err) {
       setSuccessChannelUrl(null);
       setStatus({
@@ -567,52 +671,110 @@ export default function CreateProjectChannel() {
           </FieldWrap>
 
           <FieldWrap>
-            <Label htmlFor="proj-image-file">
-              Image
+            <Label htmlFor="proj-thumbnail-file">
+              Thumbnail
               <RequiredMark aria-hidden="true">*</RequiredMark>
             </Label>
             <HiddenInput
-              id="proj-image-file"
-              ref={imageInputRef}
+              id="proj-thumbnail-file"
+              ref={thumbnailInputRef}
               type="file"
               accept="image/*"
-              onChange={handleImageChange}
+              onChange={handleThumbnailChange}
             />
             <DropZone
-              $isDragging={imageDrag.isDragging}
-              $hasFile={!!imageFile}
-              onDragEnter={imageDrag.onDragEnter}
-              onDragLeave={imageDrag.onDragLeave}
-              onDragOver={imageDrag.onDragOver}
-              onDrop={handleImageDrop}
-              onPaste={handleImagePaste}
+              $isDragging={thumbnailDrag.isDragging}
+              $hasFile={!!thumbnailFile}
+              onDragEnter={thumbnailDrag.onDragEnter}
+              onDragLeave={thumbnailDrag.onDragLeave}
+              onDragOver={thumbnailDrag.onDragOver}
+              onDrop={handleThumbnailDrop}
+              onPaste={handleThumbnailPaste}
               tabIndex={0}
             >
-              {imageFile ? (
+              {thumbnailFile ? (
                 <DropLabel>
-                  <strong>{imageFile.name}</strong> —{" "}
-                  <DropAccent as="label" htmlFor="proj-image-file">replace</DropAccent>
+                  <strong>{thumbnailFile.name}</strong> —{" "}
+                  <DropAccent as="label" htmlFor="proj-thumbnail-file">replace</DropAccent>
                   {" "}or paste to replace
                 </DropLabel>
               ) : (
                 <DropLabel>
-                  Drag, <DropAccent as="label" htmlFor="proj-image-file">browse</DropAccent>,
-                  or paste an image
+                  Drag, <DropAccent as="label" htmlFor="proj-thumbnail-file">browse</DropAccent>,
+                  or paste a thumbnail image
                 </DropLabel>
               )}
             </DropZone>
+            <Hint>
+              The thumbnail is shown as the primary image on Past and as the
+              hover preview on Project List.
+            </Hint>
 
-            {imagePreviewUrl && (
+            {thumbnailPreviewUrl && (
               <SinglePreview>
-                <img src={imagePreviewUrl} alt="Project image preview" />
+                <img src={thumbnailPreviewUrl} alt="Project thumbnail preview" />
                 <RemoveButton
                   type="button"
-                  onClick={clearImage}
-                  title="Remove image"
+                  onClick={clearThumbnail}
+                  title="Remove thumbnail"
                 >
                   &times;
                 </RemoveButton>
               </SinglePreview>
+            )}
+          </FieldWrap>
+
+          <FieldWrap>
+            <Label htmlFor="proj-gallery-images">Additional Images</Label>
+            <HiddenInput
+              id="proj-gallery-images"
+              ref={imagesInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImagesChange}
+            />
+            <DropZone
+              as="label"
+              htmlFor="proj-gallery-images"
+              $isDragging={imagesDrag.isDragging}
+              $hasFile={imageFiles.length > 0}
+              onDragEnter={imagesDrag.onDragEnter}
+              onDragLeave={imagesDrag.onDragLeave}
+              onDragOver={imagesDrag.onDragOver}
+              onDrop={handleImagesDrop}
+            >
+              <DropLabel>
+                {imageFiles.length > 0 ? (
+                  `${imageFiles.length} extra image${imageFiles.length === 1 ? "" : "s"} for this project — click or drop to add more`
+                ) : (
+                  <>
+                    Optional gallery images for this project. Drag here or{" "}
+                    <DropAccent>browse</DropAccent>
+                  </>
+                )}
+              </DropLabel>
+            </DropZone>
+            <Hint>
+              Optional. Extra images appear after the thumbnail when the project
+              is shown on Past.
+            </Hint>
+
+            {imagePreviewUrls.length > 0 && (
+              <PreviewGrid>
+                {imagePreviewUrls.map((url, i) => (
+                  <PreviewThumb key={`${imageFiles[i]?.name}-${i}`}>
+                    <img src={url} alt={`Project image ${i + 1}`} />
+                    <RemoveButton
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      title="Remove image"
+                    >
+                      &times;
+                    </RemoveButton>
+                  </PreviewThumb>
+                ))}
+              </PreviewGrid>
             )}
           </FieldWrap>
 

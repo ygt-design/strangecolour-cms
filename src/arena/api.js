@@ -1,4 +1,12 @@
-import { deleteArena, fetchArena, getGroupSlug, postArena, putArena, putExternal, invalidateCache } from "./client.js";
+import {
+  deleteArena,
+  fetchArena,
+  getGroupSlug,
+  postArena,
+  putArena,
+  putExternal,
+  invalidateCache,
+} from "./client.js";
 
 // ─── Eager group channels cache ─────────────────────────
 // Start fetching the group channel list at module load time
@@ -25,7 +33,7 @@ export async function getGroup(slug = getGroupSlug()) {
 
 export async function getGroupContents(
   slug = getGroupSlug(),
-  { page = 1, per = 24, type, sort } = {}
+  { page = 1, per = 24, type, sort } = {},
 ) {
   return fetchArena(`/groups/${encodeURIComponent(slug)}/contents`, {
     params: { page, per, type, sort },
@@ -34,7 +42,7 @@ export async function getGroupContents(
 
 export async function fetchAllGroupContents(
   slug = getGroupSlug(),
-  { type, sort } = {}
+  { type, sort } = {},
 ) {
   let page = 1;
   const per = 100;
@@ -62,7 +70,7 @@ export async function getChannel(idOrSlug) {
 
 export async function getChannelContents(
   idOrSlug,
-  { page = 1, per = 24, sort } = {}
+  { page = 1, per = 24, sort } = {},
 ) {
   return fetchArena(`/channels/${encodeURIComponent(idOrSlug)}/contents`, {
     params: { page, per, sort },
@@ -96,26 +104,28 @@ export async function getBlock(id) {
 
 export async function findChannelByTitle(title, groupSlug = getGroupSlug()) {
   const channels = await getGroupChannels(groupSlug);
-  return channels.find(
-    (ch) => ch.title?.toLowerCase() === title.toLowerCase()
-  );
+  return channels.find((ch) => ch.title?.toLowerCase() === title.toLowerCase());
 }
 
 export async function findChannelsByTitle(title, groupSlug = getGroupSlug()) {
   const channels = await getGroupChannels(groupSlug);
   return channels.filter(
-    (ch) => ch.title?.toLowerCase() === title.toLowerCase()
+    (ch) => ch.title?.toLowerCase() === title.toLowerCase(),
   );
 }
 
-export async function findBlockByTitle(title, channelTitle, groupSlug = getGroupSlug()) {
+export async function findBlockByTitle(
+  title,
+  channelTitle,
+  groupSlug = getGroupSlug(),
+) {
   const channel = await findChannelByTitle(channelTitle, groupSlug);
   if (!channel) return null;
   const items = await fetchAllChannelContents(channel.slug);
   return items.find(
     (item) =>
       item.base_type === "Block" &&
-      item.title?.toLowerCase() === title.toLowerCase()
+      item.title?.toLowerCase() === title.toLowerCase(),
   );
 }
 
@@ -125,18 +135,25 @@ export async function findBlockByTitleInChannel(channelSlugOrId, blockTitle) {
   return items.find(
     (item) =>
       item.type !== "Channel" &&
-      item.title?.toLowerCase() === blockTitle.toLowerCase()
+      item.title?.toLowerCase() === blockTitle.toLowerCase(),
   );
 }
 
-export async function findBlocksByType(type, channelTitle, groupSlug = getGroupSlug()) {
+export async function findBlocksByType(
+  type,
+  channelTitle,
+  groupSlug = getGroupSlug(),
+) {
   const channel = await findChannelByTitle(channelTitle, groupSlug);
   if (!channel) return [];
   const items = await fetchAllChannelContents(channel.slug);
   return items.filter((item) => item.type === type);
 }
 
-export async function getChannelContentsByTitle(channelTitle, groupSlug = getGroupSlug()) {
+export async function getChannelContentsByTitle(
+  channelTitle,
+  groupSlug = getGroupSlug(),
+) {
   const channel = await findChannelByTitle(channelTitle, groupSlug);
   if (!channel) return [];
   return fetchAllChannelContents(channel.slug);
@@ -145,8 +162,13 @@ export async function getChannelContentsByTitle(channelTitle, groupSlug = getGro
 // ─── Mutations (CMS write flow — Are.na v3 endpoints) ────
 
 function normalizeSlashTitle(title) {
-  const trimmed = String(title ?? "").trim().replace(/^\/+\s*/, "");
-  if (!trimmed) throw new Error("Title is required");
+  const trimmed = String(title ?? "")
+    .trim()
+    .replace(/^\/+\s*/, "");
+  if (!trimmed) {
+    // Are.na needs a non-empty, unique channel title; CMS allows omitting a display title.
+    return `// ${new Date().toISOString()}`;
+  }
   return `// ${trimmed}`;
 }
 
@@ -154,9 +176,13 @@ function normalizeSlashTitle(title) {
  * POST /v3/channels
  * Creates a channel under the group (by numeric group_id).
  */
-export async function createChannel(title, { groupSlug = getGroupSlug(), visibility = "closed" } = {}) {
+export async function createChannel(
+  title,
+  { groupSlug = getGroupSlug(), visibility = "closed" } = {},
+) {
   const group = await getGroup(groupSlug);
-  if (!group?.id) throw new Error(`Group "${groupSlug}" not found or has no id`);
+  if (!group?.id)
+    throw new Error(`Group "${groupSlug}" not found or has no id`);
 
   return postArena("/channels", {
     body: { title, visibility, group_id: group.id },
@@ -200,7 +226,9 @@ export async function updateBlock(blockId, fields) {
   if (!fields || typeof fields !== "object") {
     throw new Error("Update fields are required");
   }
-  const result = await putArena(`/blocks/${encodeURIComponent(blockId)}`, { body: fields });
+  const result = await putArena(`/blocks/${encodeURIComponent(blockId)}`, {
+    body: fields,
+  });
   bumpReadCache();
   return result;
 }
@@ -211,7 +239,9 @@ export async function updateBlock(blockId, fields) {
  */
 export async function deleteConnection(connectionId) {
   if (!connectionId) throw new Error("Connection id is required");
-  const result = await deleteArena(`/connections/${encodeURIComponent(connectionId)}`);
+  const result = await deleteArena(
+    `/connections/${encodeURIComponent(connectionId)}`,
+  );
   bumpReadCache();
   return result;
 }
@@ -251,7 +281,9 @@ export async function reorderChannelItems(channelId, items) {
 export async function removeBlockFromChannel(channelId, blockId) {
   if (!channelId) throw new Error("Channel id is required");
   if (!blockId) throw new Error("Block id is required");
-  const result = await deleteArena(`/channels/${encodeURIComponent(channelId)}/blocks/${encodeURIComponent(blockId)}`);
+  const result = await deleteArena(
+    `/channels/${encodeURIComponent(channelId)}/blocks/${encodeURIComponent(blockId)}`,
+  );
   bumpReadCache();
   return result;
 }
@@ -279,12 +311,13 @@ function sanitizeUploadFilename(name) {
   const base = lastDot > 0 ? name.slice(0, lastDot) : name;
   const ext = lastDot > 0 ? name.slice(lastDot + 1) : "";
 
-  const cleanBase = base
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 120) || fallback;
+  const cleanBase =
+    base
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 120) || fallback;
 
   const cleanExt = ext.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
   return cleanExt ? `${cleanBase}.${cleanExt}` : cleanBase;
@@ -362,9 +395,13 @@ export async function createImageBlockFromUrl(channelId, url, title) {
  * POST /v3/connections
  * Connects a channel (connectable) into one or more parent channels.
  */
-export async function connectChannelToChannels(childChannelId, parentChannelIds) {
+export async function connectChannelToChannels(
+  childChannelId,
+  parentChannelIds,
+) {
   if (!childChannelId) throw new Error("Child channel id is required");
-  if (!parentChannelIds?.length) throw new Error("At least one parent channel id is required");
+  if (!parentChannelIds?.length)
+    throw new Error("At least one parent channel id is required");
 
   return postArena("/connections", {
     body: {
@@ -387,8 +424,6 @@ export async function createSlashChannelForCurrent({
   groupSlug = getGroupSlug(),
   pageCurrentTitle = "Page / Current",
 } = {}) {
-  if (!title?.trim()) throw new Error("Title is required");
-  if (!subtitle?.trim()) throw new Error("Subtitle is required");
   if (!thumbnailFile) throw new Error("Thumbnail is required");
 
   const normalizedTitle = normalizeSlashTitle(title);
@@ -397,10 +432,13 @@ export async function createSlashChannelForCurrent({
   const channelId = channel?.id;
   if (!channelId) throw new Error("Created channel is missing an id");
 
-  await createTextBlock(channelId, {
-    title: "Subtitle",
-    content: subtitle,
-  });
+  const sub = String(subtitle ?? "").trim();
+  if (sub) {
+    await createTextBlock(channelId, {
+      title: "Subtitle",
+      content: sub,
+    });
+  }
 
   await uploadImageBlock(channelId, thumbnailFile, "Thumbnail");
 
@@ -410,9 +448,14 @@ export async function createSlashChannelForCurrent({
     await uploadImageBlock(channelId, file, `Image ${i + 1}`);
   }
 
-  const pageCurrentChannel = await findChannelByTitle(pageCurrentTitle, groupSlug);
+  const pageCurrentChannel = await findChannelByTitle(
+    pageCurrentTitle,
+    groupSlug,
+  );
   if (!pageCurrentChannel) {
-    throw new Error(`Could not find channel "${pageCurrentTitle}" in group "${groupSlug}"`);
+    throw new Error(
+      `Could not find channel "${pageCurrentTitle}" in group "${groupSlug}"`,
+    );
   }
 
   await connectChannelToChannels(channelId, [pageCurrentChannel.id]);
@@ -437,6 +480,8 @@ function normalizeProjectTitle(name) {
  */
 export async function createProjectChannel({
   name,
+  thumbnailFile,
+  imageFiles = [],
   imageFile,
   client,
   size,
@@ -448,7 +493,13 @@ export async function createProjectChannel({
   pageProjectListTitle = "Page / Project List",
 } = {}) {
   if (!name?.trim()) throw new Error("Project name is required");
-  if (!imageFile) throw new Error("Project image is required");
+
+  const primaryThumbnail = thumbnailFile ?? imageFile;
+  if (!primaryThumbnail) throw new Error("Project thumbnail is required");
+
+  const extraImages = Array.isArray(imageFiles)
+    ? imageFiles.filter(Boolean)
+    : [];
 
   const clientT = String(client ?? "").trim();
   const sizeT = String(size ?? "").trim();
@@ -468,7 +519,14 @@ export async function createProjectChannel({
   const channelId = channel?.id;
   if (!channelId) throw new Error("Created channel is missing an id");
 
-  await uploadImageBlock(channelId, imageFile, "Image");
+  await uploadImageBlock(channelId, primaryThumbnail, "Thumbnail");
+
+  for (let i = 0; i < extraImages.length; i += 1) {
+    const file = extraImages[i];
+    if (!file) continue;
+    await uploadImageBlock(channelId, file, `Image ${i + 1}`);
+  }
+
   await createTextBlock(channelId, { title: "Client", content: clientT });
   await createTextBlock(channelId, { title: "Size", content: sizeT });
   await createTextBlock(channelId, { title: "Scope", content: scopeT });
@@ -477,15 +535,25 @@ export async function createProjectChannel({
 
   const pagePastChannel = await findChannelByTitle(pagePastTitle, groupSlug);
   if (!pagePastChannel) {
-    throw new Error(`Could not find channel "${pagePastTitle}" in group "${groupSlug}"`);
+    throw new Error(
+      `Could not find channel "${pagePastTitle}" in group "${groupSlug}"`,
+    );
   }
 
-  const pageProjectListChannel = await findChannelByTitle(pageProjectListTitle, groupSlug);
+  const pageProjectListChannel = await findChannelByTitle(
+    pageProjectListTitle,
+    groupSlug,
+  );
   if (!pageProjectListChannel) {
-    throw new Error(`Could not find channel "${pageProjectListTitle}" in group "${groupSlug}"`);
+    throw new Error(
+      `Could not find channel "${pageProjectListTitle}" in group "${groupSlug}"`,
+    );
   }
 
-  await connectChannelToChannels(channelId, [pagePastChannel.id, pageProjectListChannel.id]);
+  await connectChannelToChannels(channelId, [
+    pagePastChannel.id,
+    pageProjectListChannel.id,
+  ]);
 
   bumpReadCache();
 

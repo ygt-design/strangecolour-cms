@@ -382,13 +382,14 @@ function plainToHtml(text) {
 }
 
 function normalizeEditorHtml(html) {
-  const value = String(html ?? "").replace(/\u00a0/g, " ").trim();
-  if (!value) return "";
-  const stripped = value
-    .replace(/<br\s*\/?>/gi, "")
-    .replace(/<p>\s*<\/p>/gi, "")
-    .trim();
-  return stripped ? value : "";
+  const value = String(html ?? "").replace(/\u00a0/g, " ");
+  if (!value.trim()) {
+    // Preserve editor structure during input (e.g. paragraph breaks / blank lines)
+    // instead of collapsing to empty and fighting the caret/Enter behavior.
+    const hasStructuralBreaks = /<br\s*\/?>|<p>\s*<\/p>|<li>\s*<\/li>/i.test(value);
+    return hasStructuralBreaks ? value : "";
+  }
+  return value;
 }
 
 function readBlockHtml(block) {
@@ -548,6 +549,11 @@ const TEXT_FIELDS = [
     label: "Donations",
     placeholder: "Right column: one paragraph or list item per initiative (same pattern as Collaborators)",
   },
+  {
+    key: "Notes and Legal",
+    label: "Notes and Legal",
+    placeholder: "Notes and legal copy shown in the modal",
+  },
 ];
 
 // ─── Component ──────────────────────────────────────────
@@ -690,7 +696,8 @@ export default function EditOurPractice() {
           <Intro>
             Edit and format the content blocks for the Our Practice page. Changes are
             saved directly to the existing blocks on Are.na. Add a Text block on &quot;Page /
-            Our Practice&quot; titled <strong>Donations</strong> for the initiatives list.
+            Our Practice&quot; titled <strong>Donations</strong> for the initiatives list and
+            <strong> Notes and Legal</strong> for the legal modal copy.
             If a field is empty here, that block is missing on Are.na — the site uses
             built-in fallback copy where applicable.
           </Intro>

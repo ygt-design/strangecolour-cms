@@ -436,9 +436,7 @@ function isImage(file) {
   return typeof file?.type === "string" && file.type.startsWith("image/");
 }
 
-function validate({ title, subtitle, thumbnailFile, imageFiles }) {
-  if (!title.trim()) return "Title is required.";
-  if (!subtitle.trim()) return "Subtitle is required.";
+function validate({ thumbnailFile, imageFiles }) {
   if (!thumbnailFile) return "Thumbnail image is required.";
   if (!isImage(thumbnailFile)) return "Thumbnail must be an image file.";
   if (imageFiles.some((f) => !isImage(f)))
@@ -602,7 +600,7 @@ export default function CreateSlashChannel() {
     setStatus({ kind: "", text: "" });
     setSuccessChannelUrl(null);
 
-    const error = validate({ title, subtitle, thumbnailFile, imageFiles });
+    const error = validate({ thumbnailFile, imageFiles });
     if (error) {
       setStatus({ kind: "error", text: error });
       return;
@@ -617,9 +615,12 @@ export default function CreateSlashChannel() {
         imageFiles,
       });
 
+      const hasDisplayTitle = title.trim().length > 0;
       setStatus({
         kind: "success",
-        text: `"${result.normalizedTitle}" has been submitted — added to Page / Current.`,
+        text: hasDisplayTitle
+          ? `"${result.normalizedTitle}" has been submitted — added to Page / Current.`
+          : "Entry submitted — added to Page / Current. (You left the title blank; a timestamp was used for the channel name on Are.na.)",
       });
       setSuccessChannelUrl(buildAreNaChannelWebUrl(result.channel));
       setTitle("");
@@ -647,10 +648,11 @@ export default function CreateSlashChannel() {
             <HeaderWrap>
               <Heading>Submit a New Current Entry</Heading>
               <Intro>
-                Fill out the details below to publish a new item to the Current
-                page. A // channel will be created with your title, a Subtitle
-                block, a required thumbnail, and any extra images, then connected
-                to Page / Current so it appears in the grid.
+                Add a new item to the Current page. A // channel is created with
+                a required thumbnail and any extra images, then connected to
+                Page / Current. Title and Subtitle are optional; if the title is
+                empty, the channel is given a unique default name on Are.na.
+                Without a Subtitle, no Subtitle block is created.
               </Intro>
             </HeaderWrap>
 
@@ -658,17 +660,13 @@ export default function CreateSlashChannel() {
               <FormFields>
               {/* ── Title ── */}
               <FieldWrap>
-                <Label htmlFor="title">
-                  Title
-                  <RequiredMark aria-hidden="true">*</RequiredMark>
-                </Label>
+                <Label htmlFor="title">Title</Label>
                 <Input
                   id="title"
                   name="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder='e.g. "Archive of hand-painted signs"'
-                  required
+                  placeholder='e.g. "Archive of hand-painted signs" (optional)'
                 />
                 {previewTitle && (
                   <PreviewLabel>
@@ -679,21 +677,17 @@ export default function CreateSlashChannel() {
 
               {/* ── Subtitle ── */}
               <FieldWrap>
-                <Label htmlFor="subtitle">
-                  Subtitle
-                  <RequiredMark aria-hidden="true">*</RequiredMark>
-                </Label>
+                <Label htmlFor="subtitle">Subtitle</Label>
                 <Textarea
                   id="subtitle"
                   name="subtitle"
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
-                  placeholder="One line that appears under the entry on Current (Subtitle block)."
-                  required
+                  placeholder="Optional line under the entry on Current (Subtitle block)."
                 />
                 <Hint>
-                  Saved as the Subtitle block; the site reads it for the caption
-                  under the thumbnail.
+                  If provided, saved as the Subtitle block; the site reads it
+                  for the caption under the thumbnail.
                 </Hint>
               </FieldWrap>
 
