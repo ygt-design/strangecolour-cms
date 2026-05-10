@@ -127,15 +127,6 @@ const Label = styled.label`
   color: ${G.ink};
 `;
 
-const RequiredMark = styled.span.attrs({
-  title: "This section is required, please.",
-})`
-  color: var(--color-brand-green);
-  margin-left: 0.25em;
-  font-weight: ${FW_MEDIUM};
-  cursor: help;
-`;
-
 const Input = styled.input`
   border: none;
   border-bottom: 1px solid ${G.line};
@@ -394,25 +385,13 @@ function isImage(file) {
 }
 
 function validate({
-  name,
   thumbnailFile,
   imageFiles,
-  client,
-  size,
-  scope,
-  architect,
-  year,
 }) {
-  if (!name.trim()) return "Project name is required.";
-  if (!thumbnailFile) return "Project thumbnail is required.";
-  if (!isImage(thumbnailFile)) return "Thumbnail must be an image file.";
+  if (thumbnailFile && !isImage(thumbnailFile))
+    return "Thumbnail must be an image file.";
   if (imageFiles.some((f) => !isImage(f)))
     return "All extra images must be image files.";
-  if (!client.trim()) return "Client is required.";
-  if (!size.trim()) return "Size is required.";
-  if (!scope.trim()) return "Scope is required.";
-  if (!architect.trim()) return "Architect is required.";
-  if (!year.trim()) return "Year is required.";
   return null;
 }
 
@@ -580,14 +559,8 @@ export default function CreateProjectChannel() {
     setSuccessChannelUrl(null);
 
     const error = validate({
-      name,
       thumbnailFile,
       imageFiles,
-      client,
-      size,
-      scope,
-      architect,
-      year,
     });
     if (error) {
       setStatus({ kind: "error", text: error });
@@ -653,7 +626,6 @@ export default function CreateProjectChannel() {
           <FieldWrap>
             <Label htmlFor="proj-name">
               Project Name
-              <RequiredMark aria-hidden="true">*</RequiredMark>
             </Label>
             <Input
               id="proj-name"
@@ -661,7 +633,6 @@ export default function CreateProjectChannel() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder='e.g. "Riverside studio"'
-              required
             />
             {previewTitle && (
               <PreviewLabel>
@@ -673,7 +644,6 @@ export default function CreateProjectChannel() {
           <FieldWrap>
             <Label htmlFor="proj-thumbnail-file">
               Thumbnail
-              <RequiredMark aria-hidden="true">*</RequiredMark>
             </Label>
             <HiddenInput
               id="proj-thumbnail-file"
@@ -781,7 +751,6 @@ export default function CreateProjectChannel() {
           <FieldWrap>
             <Label htmlFor="proj-client">
               Client
-              <RequiredMark aria-hidden="true">*</RequiredMark>
             </Label>
             <Input
               id="proj-client"
@@ -789,14 +758,12 @@ export default function CreateProjectChannel() {
               value={client}
               onChange={(e) => setClient(e.target.value)}
               placeholder='e.g. "Brooklyn, NY"'
-              required
             />
           </FieldWrap>
 
           <FieldWrap>
             <Label htmlFor="proj-size">
               Size
-              <RequiredMark aria-hidden="true">*</RequiredMark>
             </Label>
             <Input
               id="proj-size"
@@ -804,14 +771,12 @@ export default function CreateProjectChannel() {
               value={size}
               onChange={(e) => setSize(e.target.value)}
               placeholder='e.g. "2,400 sq ft"'
-              required
             />
           </FieldWrap>
 
           <FieldWrap>
             <Label htmlFor="proj-scope">
               Scope
-              <RequiredMark aria-hidden="true">*</RequiredMark>
             </Label>
             <Input
               id="proj-scope"
@@ -819,14 +784,12 @@ export default function CreateProjectChannel() {
               value={scope}
               onChange={(e) => setScope(e.target.value)}
               placeholder='e.g. "Interior renovation"'
-              required
             />
           </FieldWrap>
 
           <FieldWrap>
             <Label htmlFor="proj-architect">
               Architect
-              <RequiredMark aria-hidden="true">*</RequiredMark>
             </Label>
             <Input
               id="proj-architect"
@@ -834,14 +797,12 @@ export default function CreateProjectChannel() {
               value={architect}
               onChange={(e) => setArchitect(e.target.value)}
               placeholder='e.g. "Strange Colour"'
-              required
             />
           </FieldWrap>
 
           <FieldWrap>
             <Label htmlFor="proj-year">
               Year
-              <RequiredMark aria-hidden="true">*</RequiredMark>
             </Label>
             <Input
               id="proj-year"
@@ -849,7 +810,6 @@ export default function CreateProjectChannel() {
               value={year}
               onChange={(e) => setYear(e.target.value)}
               placeholder='e.g. "2024"'
-              required
             />
             <Hint>
               Each field is saved as a separate block; the site reads them by

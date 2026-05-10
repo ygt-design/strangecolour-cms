@@ -130,16 +130,6 @@ const Label = styled.label`
   color: ${G.ink};
 `;
 
-/** Green brand asterisk; native tooltip on hover. */
-const RequiredMark = styled.span.attrs({
-  title: "This section is required, please.",
-})`
-  color: var(--color-brand-green);
-  margin-left: 0.25em;
-  font-weight: ${FW_MEDIUM};
-  cursor: help;
-`;
-
 const Input = styled.input`
   border: none;
   border-bottom: 1px solid ${G.line};
@@ -437,8 +427,8 @@ function isImage(file) {
 }
 
 function validate({ thumbnailFile, imageFiles }) {
-  if (!thumbnailFile) return "Thumbnail image is required.";
-  if (!isImage(thumbnailFile)) return "Thumbnail must be an image file.";
+  if (thumbnailFile && !isImage(thumbnailFile))
+    return "Thumbnail must be an image file.";
   if (imageFiles.some((f) => !isImage(f)))
     return "All extra images must be image files.";
   return null;
@@ -649,10 +639,10 @@ export default function CreateSlashChannel() {
               <Heading>Submit a New Current Entry</Heading>
               <Intro>
                 Add a new item to the Current page. A // channel is created with
-                a required thumbnail and any extra images, then connected to
-                Page / Current. Title and Subtitle are optional; if the title is
-                empty, the channel is given a unique default name on Are.na.
-                Without a Subtitle, no Subtitle block is created.
+                any images you include, then connected to Page / Current. Title
+                and Subtitle are optional; if the title is empty, the channel is
+                given a unique default name on Are.na. Without a Subtitle, no
+                Subtitle block is created.
               </Intro>
             </HeaderWrap>
 
@@ -691,11 +681,10 @@ export default function CreateSlashChannel() {
                 </Hint>
               </FieldWrap>
 
-              {/* ── Thumbnail (single, required) ── */}
+              {/* ── Thumbnail (single) ── */}
               <FieldWrap>
                 <Label htmlFor="thumbnail-file">
                   Thumbnail
-                  <RequiredMark aria-hidden="true">*</RequiredMark>
                 </Label>
                 <HiddenInput
                   id="thumbnail-file"

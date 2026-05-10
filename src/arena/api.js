@@ -275,10 +275,14 @@ export async function reorderChannelItems(channelId, items) {
 }
 
 /**
- * DELETE /v3/channels/{channelId}/blocks/{blockId}
  * Removes a block from a channel.
+ * Accepts an optional connectionId (preferred for v3) or falls back to the
+ * v2-style DELETE /channels/{channelId}/blocks/{blockId} endpoint.
  */
-export async function removeBlockFromChannel(channelId, blockId) {
+export async function removeBlockFromChannel(channelId, blockId, connectionId) {
+  if (connectionId) {
+    return deleteConnection(connectionId);
+  }
   if (!channelId) throw new Error("Channel id is required");
   if (!blockId) throw new Error("Block id is required");
   const result = await deleteArena(
@@ -291,11 +295,12 @@ export async function removeBlockFromChannel(channelId, blockId) {
 /**
  * Replaces an image block: removes the old one and uploads a new file
  * with the same title into the same channel.
+ * Pass connectionId (from block.connection.id) for reliable v3 deletion.
  */
-export async function replaceImageBlock(channelId, oldBlockId, file, title) {
+export async function replaceImageBlock(channelId, oldBlockId, file, title, connectionId) {
   if (!channelId) throw new Error("Channel id is required");
   if (!oldBlockId) throw new Error("Original block id is required");
-  await removeBlockFromChannel(channelId, oldBlockId);
+  await removeBlockFromChannel(channelId, oldBlockId, connectionId);
   return uploadImageBlock(channelId, file, title);
 }
 
@@ -424,8 +429,6 @@ export async function createSlashChannelForCurrent({
   groupSlug = getGroupSlug(),
   pageCurrentTitle = "Page / Current",
 } = {}) {
-  if (!thumbnailFile) throw new Error("Thumbnail is required");
-
   const normalizedTitle = normalizeSlashTitle(title);
 
   const channel = await createChannel(normalizedTitle, { groupSlug });
@@ -440,7 +443,9 @@ export async function createSlashChannelForCurrent({
     });
   }
 
-  await uploadImageBlock(channelId, thumbnailFile, "Thumbnail");
+  if (thumbnailFile) {
+    await uploadImageBlock(channelId, thumbnailFile, "Thumbnail");
+  }
 
   for (let i = 0; i < imageFiles.length; i += 1) {
     const file = imageFiles[i];
@@ -467,9 +472,9 @@ export async function createSlashChannelForCurrent({
 
 function normalizeProjectTitle(name) {
   let trimmed = String(name ?? "").trim();
-  if (!trimmed) throw new Error("Project name is required");
+  if (!trimmed) return `→ ${new Date().toISOString()}`;
   trimmed = trimmed.replace(/^→\s*/, "").trim();
-  if (!trimmed) throw new Error("Project name is required");
+  if (!trimmed) return `→ ${new Date().toISOString()}`;
   return `→ ${trimmed}`;
 }
 
@@ -492,10 +497,7 @@ export async function createProjectChannel({
   pagePastTitle = "Page / Past",
   pageProjectListTitle = "Page / Project List",
 } = {}) {
-  if (!name?.trim()) throw new Error("Project name is required");
-
   const primaryThumbnail = thumbnailFile ?? imageFile;
-  if (!primaryThumbnail) throw new Error("Project thumbnail is required");
 
   const extraImages = Array.isArray(imageFiles)
     ? imageFiles.filter(Boolean)
@@ -507,19 +509,15 @@ export async function createProjectChannel({
   const archT = String(architect ?? "").trim();
   const yearT = String(year ?? "").trim();
 
-  if (!clientT) throw new Error("Client is required");
-  if (!sizeT) throw new Error("Size is required");
-  if (!scopeT) throw new Error("Scope is required");
-  if (!archT) throw new Error("Architect is required");
-  if (!yearT) throw new Error("Year is required");
-
   const normalizedTitle = normalizeProjectTitle(name);
 
   const channel = await createChannel(normalizedTitle, { groupSlug });
   const channelId = channel?.id;
   if (!channelId) throw new Error("Created channel is missing an id");
 
-  await uploadImageBlock(channelId, primaryThumbnail, "Thumbnail");
+  if (primaryThumbnail) {
+    await uploadImageBlock(channelId, primaryThumbnail, "Thumbnail");
+  }
 
   for (let i = 0; i < extraImages.length; i += 1) {
     const file = extraImages[i];
@@ -527,11 +525,21 @@ export async function createProjectChannel({
     await uploadImageBlock(channelId, file, `Image ${i + 1}`);
   }
 
-  await createTextBlock(channelId, { title: "Client", content: clientT });
-  await createTextBlock(channelId, { title: "Size", content: sizeT });
-  await createTextBlock(channelId, { title: "Scope", content: scopeT });
-  await createTextBlock(channelId, { title: "Architect", content: archT });
-  await createTextBlock(channelId, { title: "Year", content: yearT });
+  if (clientT) {
+    await createTextBlock(channelId, { title: "Client", content: clientT });
+  }
+  if (sizeT) {
+    await createTextBlock(channelId, { title: "Size", content: sizeT });
+  }
+  if (scopeT) {
+    await createTextBlock(channelId, { title: "Scope", content: scopeT });
+  }
+  if (archT) {
+    await createTextBlock(channelId, { title: "Architect", content: archT });
+  }
+  if (yearT) {
+    await createTextBlock(channelId, { title: "Year", content: yearT });
+  }
 
   const pagePastChannel = await findChannelByTitle(pagePastTitle, groupSlug);
   if (!pagePastChannel) {

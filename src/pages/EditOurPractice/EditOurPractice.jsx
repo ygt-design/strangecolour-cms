@@ -648,7 +648,9 @@ export default function EditOurPractice() {
 
       if (imageFile) {
         if (!blocks.Image) throw new Error('Missing "Image" block in Page / Our Practice.');
-        const newBlock = await replaceImageBlock(channelId, blocks.Image.id, imageFile, "Image");
+        const newBlock = await replaceImageBlock(
+          channelId, blocks.Image.id, imageFile, "Image", blocks.Image.connection?.id,
+        );
         setBlocks((prev) => ({ ...prev, Image: newBlock }));
         setImageCurrentUrl(getImageUrl(newBlock));
         setImageFile(null);
@@ -656,7 +658,9 @@ export default function EditOurPractice() {
 
       if (bgImageFile) {
         if (!blocks["bg-Image"]) throw new Error('Missing "bg-Image" block in Page / Our Practice.');
-        const newBlock = await replaceImageBlock(channelId, blocks["bg-Image"].id, bgImageFile, "bg-Image");
+        const newBlock = await replaceImageBlock(
+          channelId, blocks["bg-Image"].id, bgImageFile, "bg-Image", blocks["bg-Image"].connection?.id,
+        );
         setBlocks((prev) => ({ ...prev, "bg-Image": newBlock }));
         setBgImageCurrentUrl(getImageUrl(newBlock));
         setBgImageFile(null);
